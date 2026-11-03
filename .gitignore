@@ -1,0 +1,10 @@
+/node_modules/
+*.bak
+*.bak-*
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
+
+# 本地测试产物
+/test/out/

@@ -1,0 +1,42 @@
+# dsh-hermes-feishu 作为 profile bundle 挂载。
+#
+# 装法（与 dsh-baidu-tts 一致）：
+#   在 profile 的 package.json dependencies 里加：
+#     "dsh-hermes-feishu": "link:C:/Users/lishuaibing/dsh/plugins/dsh-hermes-feishu"
+#   并在 dsh.profile.bundles 里加 "dsh-hermes-feishu"
+#   然后 dsh plugin --profile <name> install --config.minimum-release-age=0
+#
+# 凭据走环境变量（放在 ~/.dsh/.env，**不要用 DSH_ 前缀**——dsh 把 DSH_*
+# 当作只能由启动环境设置的 bootstrap 变量，写进 .env 会直接启动失败）：
+#   FEISHU_PLUGIN_APP_ID     飞书应用 App ID
+#   FEISHU_PLUGIN_APP_SECRET 飞书应用 App Secret
+#   FEISHU_PLUGIN_DOMAIN     feishu|lark（默认 feishu）
+#   FEISHU_PLUGIN_CHAT_ID    默认发送目标
+#   FEISHU_PLUGIN_BOT_NAME   卡片标题里的机器人名
+
+- insert:
+    - id: hermes-feishu
+      name: 'dsh-hermes-feishu'
+      config:
+        appId: !!js process.env.FEISHU_PLUGIN_APP_ID
+        appSecret: !!js process.env.FEISHU_PLUGIN_APP_SECRET
+        domain: !!js process.env.FEISHU_PLUGIN_DOMAIN ?? 'feishu'
+        defaultChatId: !!js process.env.FEISHU_PLUGIN_CHAT_ID
+        defaultReceiveIdType: 'chat_id'
+        botName: !!js process.env.FEISHU_PLUGIN_BOT_NAME ?? 'AI 助手'
+        modelTag: !!js process.env.DSH_CURRENT_MODEL ?? ''
+        providerTag: !!js process.env.DSH_CURRENT_PROVIDER ?? ''
+        # 主模型：tokenbridge/deepseek-flash（与 agent-default-model 一致）
+        agentProvider: 'tokenbridge'
+        agentModel: 'deepseek-flash'
+        # 备用模型链：主模型请求失败时按顺序切，切完仍失败才报错。
+        # 这几条都是 dsh 的 llm-pi-ai 里已注册的 provider/model。
+        # CSV 格式（数组不能标 volatile，见 lib/config.js 顶部注释）
+        fallbackModels: 'tokenbridge/qwen3.8-flash-next, localtoken/glm-5.3-flash'
+        # 进度气泡
+        thinkingEnabled: true
+        thinkingFilterUserEcho: true
+        toolPreviewChars: 60
+        agentMode: 'inprocess'
+        inbound: true
+        inboundProfile: 'headless'
