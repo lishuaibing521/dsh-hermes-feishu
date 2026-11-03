@@ -13,11 +13,27 @@ const ctx = {
       return () => {};
     },
   },
+  // 新版 cordis 插件在 apply 前用 ctx.inject 声明依赖；假 ctx 也得有，否则加载直接抛。
+  // ctx.inject(依赖列表, (scope) => {...})：真机上 scope 是带这些服务的作用域，
+  // 假 ctx 必须把它自己作为 scope 传回去，否则回调里读 scope.xxx 就是 undefined。
+  inject(deps, fn) {
+    if (typeof fn === 'function') fn(this);
+    return () => {};
+  },
+  on() {
+    return () => {};
+  },
   effect(fn) {
     effects.push(fn);
     const disposer = fn();
     return disposer ?? (() => {});
   },
+  // 插件会借这些 dsh 服务挂 HTTP 路由 / 读模型库；测试里给最小桩就行。
+  webServer: { register: () => () => {} },
+  settings: { get: () => undefined, set: () => {} },
+  llm: { listProviders: async () => [], listModels: async () => [] },
+  web: { searchProviders: [], fetchProviders: [] },
+  attachments: { admitPromptContent: async () => null },
   logger: {
     info: (...args) => logs.push(args.join(' ')),
     warn: (...args) => logs.push(args.join(' ')),

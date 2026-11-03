@@ -24,8 +24,6 @@
         defaultChatId: !!js process.env.FEISHU_PLUGIN_CHAT_ID
         defaultReceiveIdType: 'chat_id'
         botName: !!js process.env.FEISHU_PLUGIN_BOT_NAME ?? 'AI 助手'
-        modelTag: !!js process.env.DSH_CURRENT_MODEL ?? ''
-        providerTag: !!js process.env.DSH_CURRENT_PROVIDER ?? ''
         # 主模型：tokenbridge/deepseek-flash（与 agent-default-model 一致）
         agentProvider: 'tokenbridge'
         agentModel: 'deepseek-flash'
