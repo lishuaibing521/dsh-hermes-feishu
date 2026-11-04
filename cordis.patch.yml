@@ -32,7 +32,8 @@
         # CSV 格式（数组不能标 volatile，见 lib/config.js 顶部注释）
         fallbackModels: 'tokenbridge/qwen3.8-flash-next, localtoken/glm-5.3-flash'
         # 进度气泡
-        thinkingEnabled: true
+        # thinkingEnabled 默认 false（不显示思考过程），要看得显式写 true
+        thinkingEnabled: false
         thinkingFilterUserEcho: true
         toolPreviewChars: 60
         agentMode: 'inprocess'
