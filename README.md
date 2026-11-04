@@ -43,12 +43,39 @@ manifest 依赖 `dsh.bundle.patch`，`dsh plugin add` 靠它识别这是个可�
 | `FEISHU_PLUGIN_DOMAIN` | `feishu`（国内）或 `lark`（国际），默认 `feishu` |
 | `FEISHU_PLUGIN_CHAT_ID` | 默认发送目标（`oc_` 群 或 `ou_` 用户） |
 | `FEISHU_PLUGIN_BOT_NAME` | 卡片标题里的机器人名 |
+| `FEISHU_PLUGIN_DM_POLICY` | 单聊准入：`open` / `allowlist` / `disabled`（默认 `allowlist`） |
+| `FEISHU_PLUGIN_GROUP_POLICY` | 群聊准入：`open` / `allowlist` / `disabled`（默认 `allowlist`） |
+| `FEISHU_PLUGIN_ALLOW_FROM` | 准入白名单，逗号分隔的 `open_id`；`*` 表示放行所有人 |
 
 > ⚠️ **变量名不能用 `DSH_` 前缀**。dsh 把 `DSH_*` 一律当成只能由启动环境设置的 bootstrap 变量，写进 `.env` 会让 dsh 直接启动失败。同样的限制还覆盖 `XDG_`、`DYLD_`、`BASH_FUNC_` 前缀，以及 `PATH` / `HOME` / `NODE_OPTIONS` / `GIT_*` 这些具体名字。
 
 飞书那边需要开两样：应用的**机器人能力**，以及**事件订阅里的长连接模式**。只开出站能力也能用工具发消息，但收不到入站消息。
 
 改完配置**不需要重启**——设置页保存即刻生效；只有 App ID / Secret / 域名这类和长连接绑定的项需要重启 dsh web。
+
+## 发送方准入（默认拒绝）
+
+⚠️ **装完必须先配白名单，否则机器人不会响应任何消息**（出厂默认就是拒绝）。
+
+这个插件的入站消息会驱动一个能读写本机文件、执行 shell 的 agent。所以「谁能给机器人发消息」等于「谁能操作你这台机器」，不能用「能发消息就放行」这种默认：
+
+| 策略 | 行为 |
+| --- | --- |
+| `allowlist`（默认） | 只有 `allowFrom` 里的用户能驱动 agent；**留空 = 谁都不放行** |
+| `open` | 任何人都能驱动（仅在你完全清楚后果时使用） |
+| `disabled` | 该类会话一律忽略 |
+
+单聊和群聊分别由 `dmPolicy` / `groupPolicy` 控制，默认都是 `allowlist`。
+
+**怎么拿到自己的 `open_id`**：先随便发一条消息，机器人会静默拒绝，同时插件日志里有一行
+
+```
+[deny] 发送方不在白名单（dmPolicy=allowlist） chat=oc_xxx open_id=ou_xxx user_id=xxx — 要放行就把该 open_id 填进 allowFrom
+```
+
+把那串 `ou_xxx` 填进设置页的「允许的发送方」，或写 `FEISHU_PLUGIN_ALLOW_FROM` 环境变量。
+
+匹配时 `open_id` / `user_id` / `union_id` 任一命中即放行。白名单里写 `*` 表示放行所有人（等于关掉这道闸），只建议本地自用时用。
 
 ## Web 设置页
 
@@ -105,6 +132,7 @@ node test/e2e.mjs     # 端到端：构建 → 实发 → 读回 → 撤回
 - 音频时长解析只认 OGG/Opus；其他格式回 0（飞书对非 opus 文件走 `stream` 类型，不需要时长）。
 - 语音识别和语音合成依赖独立的 dsh 插件（如 `dsh-baidu-stt` / `dsh-baidu-tts`）。没装的话对应下拉框会是空的，出站和入站的文字链路不受影响。
 - 同一套飞书应用同时只能有一条长连接。如果已经在别的工具里跑着同一个应用，这里会连不上。
+- **入站默认拒绝**：`dmPolicy` / `groupPolicy` 出厂都是 `allowlist` 且白名单为空，装完不配白名单机器人不会响应任何消息。这是刻意的——入站消息会驱动能读写文件、执行 shell 的 agent，默认放行等于把这台机器交给任何能给机器人发消息的人。
 
 ## 依赖
 
