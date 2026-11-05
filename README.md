@@ -108,9 +108,50 @@ manifest 依赖 `dsh.bundle.patch`，`dsh plugin add` 靠它识别这是个可�
 | `feishu_render_preview` | 只渲染不发送，调试卡片结构 |
 | `feishu_parse_message` | 归一化一条入站消息 |
 
+> **语音能力已内置（百度），不需要另装插件。**
+>
+> `feishu_transcribe`（语音转文字）和 `feishu_send_voice`（文字转语音）都直接调百度语音 API，
+> 用同一组密钥。在「设置 → 插件配置 → 语音设置」里填这两个值即可，**保存后立刻生效，不用重启**：
+>
+> | 配置项 | 说明 |
+> | --- | --- |
+> | 百度 API Key | 百度智能云「语音技术 → 应用列表」创建应用后拿到的 API Key |
+> | 百度 Secret Key | 同一个应用下的 Secret Key |
+>
+> 不需要去改 `.env`。留空时会回落到环境变量 `BAIDU_VOICE_API_KEY` / `BAIDU_VOICE_SECRET_KEY`
+> （老部署升级后不会突然失效）。
+>
+> 另外还能配发音人（度小美 / 度小宇 / 度逍遥 / 度丫丫 / 情感男声）和语速、音调、音量。
+>
+> **不再依赖** `dsh-baidu-stt` / `dsh-baidu-tts` 这两个插件。
+> 它们可以继续留着给 **dsh Web UI** 用（那是另一条链路，读 `.env` 里的环境变量），
+> 互不影响：本插件只要在设置页填了密钥，就走自己的内置百度，
+> 不会去用那两个插件注册的服务（否则设置页填的密钥会被环境变量为空的服务顶掉）。
+> 设置页留空时才会回落到 dsh 的 `speechToText` 服务，这样装 SenseVoice 之类的后端也还能用。
+
+## 安全
+
+同一条飞书应用的人都能给机器人发消息，但**能发消息 ≠ 有权限驱动 agent** ——
+agent 手里是本机的模型额度、文件读写和 shell 执行权限。
+
+**准入是默认拒绝的**，消息和卡片两个入口都要过同一套白名单：
+
+| 入口 | 校验点 | 默认 |
+| --- | --- | --- |
+| 消息（`im.message.receive_v1`） | `dispatch.js` 按 `dmPolicy` / `groupPolicy` + `allowFrom` | `allowlist` + 空白名单 = 谁都不放行 |
+| 卡片回调（`card.action.trigger`） | `acl.js`，审批卡与提问卡各判一次 | 同上 |
+| 审批 / 提问卡片 | 除白名单外，**只有发起这条会话的人能点** | 别人点了返回「无权限」 |
+
+配置方式：设置页 → 插件配置 → 飞书应用 → 单聊策略 / 群聊策略 / 允许的发送方。
+不知道自己的 `open_id`？给机器人发一条消息，看插件日志里的 `[deny]` 行——里面直接印了你的 `open_id`。
+
 ## 可靠性
 
-- **模型故障转移** — 主模型请求失败时按备用链依次切换，走 dsh 原生的 `agent/request` waterfall，不重建 agent、不重放消息。
+- **模型故障转移** — 主模型请求失败时按 `fallbackModels` 链依次切换。**实现随 dsh 版本分两路**：
+  - dsh `0.2.1`：走 `agent/request` 原地换路由 + `agent/request-error` 返回 `retry`。
+  - dsh `0.2.2+`：`agent/request` 被官方冻结（改了会抛错），改用官方通道
+    `agent.model.select()`，**这一轮失败后用链上下一个模型重开一轮**。
+    会话不变、历史全在、已跑过的工具调用不会重放。
 - **审批兜底** — 工具调用需要人工确认时发飞书卡片，点上「允许 / 拒绝」。没有这一层的话 dsh 会 fail-closed 直接拒绝，表现为任务莫名失败却没有任何提示。
 - **进度气泡** — 思考内容和工具调用混在同一条气泡里实时更新，不会刷屏。**思考过程默认不显示**（`thinkingEnabled` 默认 `false`），要在「设置 → 插件配置 → 进度气泡」里打勾才显示。
 - **会话持久化** — 会话映射落盘，dsh 重启后接得上，不会丢上下文。
@@ -120,6 +161,9 @@ manifest 依赖 `dsh.bundle.patch`，`dsh plugin add` 靠它识别这是个可�
 ```bash
 node test/run.mjs     # 渲染 / 入站 / 路由 / 音频解析
 node test/load.mjs    # 插件加载与工具注册契约
+node test/acl.mjs      # 卡片回调准入 + 发起人绑定（安全回归）
+node test/fallback.mjs # 模型故障转移两代适配（0.2.1 / 0.2.2+）
+node test/baidu.mjs    # 内置百度语音：凭据优先级 / token 缓存 / 合成识别
 node test/probe.mjs   # 真机：token / 机器人身份 / 会话 / 渲染链路
 node test/e2e.mjs     # 端到端：构建 → 实发 → 读回 → 撤回
 ```
