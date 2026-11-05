@@ -11,7 +11,7 @@
 // 运行：node test/baidu.mjs
 
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -70,9 +70,23 @@ function restoreFetch() {
   globalThis.fetch = realFetch;
 }
 
-/** 清掉 token 缓存：不然后面的用例会命中前一个用例留下的缓存，断言数量对不上。 */
+/**
+ * 清掉 token 缓存：不然后面的用例会命中前一个用例留下的缓存，断言数量对不上。
+ * 缓存文件名带凭据指纹（baidu-speech-token-<hash>.json），所以要按前缀全删。
+ */
 async function clearTokenCache() {
-  await rm(join(home, 'cache', 'baidu-speech-token.json'), { force: true });
+  const dir = join(home, 'cache');
+  let entries = [];
+  try {
+    entries = await readdir(dir);
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    if (entry.startsWith('baidu-speech-token')) {
+      await rm(join(dir, entry), { force: true });
+    }
+  }
 }
 
 const jsonResponse = (payload, headers = {}) =>
