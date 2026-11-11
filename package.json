@@ -1,6 +1,6 @@
 {
   "name": "dsh-hermes-feishu",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Feishu/Lark channel for DeepSeek Harness: WebSocket inbound messaging, Markdown tables rendered as native Feishu table components, 13 Feishu tools, a web settings page, voice and media.",
   "license": "MIT",
   "author": "lishuaibing",
